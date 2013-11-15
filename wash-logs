@@ -1,0 +1,154 @@
+#!/bin/bash
+#
+# chrome-logging project is a series of scripts that help collect logs of
+# Google Chrome browser
+#
+# The MIT License (MIT)
+#
+# Copyright (c) 2013 Wiktor Lawski <wiktor.lawski@gmail.com>
+#
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included in all
+# copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+# SOFTWARE.
+#
+
+#
+# Bash script washing out personal data from chrome_debug.log files.
+#
+# It is version prepared both for Git Bash and Linux.
+#
+
+OLD_LOG=chrome_debug.log
+WASHED_LOG=chrome_debug_washed.log
+
+if [ $# -gt 0 ]
+then
+	OLD_LOG=$1
+
+	if [ $# -gt 1 ]
+	then
+		WASHED_LOG=$2
+	fi
+fi
+
+cat $OLD_LOG |
+awk 'function cut_suffix(txt, prefix, str, shift, is_leading) {
+	for (i = 1; i < NF; i++) {
+		if (match($i, prefix) > 0) {
+			if (is_leading == 1) {
+				len = RLENGTH;
+			} else {
+				len = RSTART;
+			}
+
+			if (match($i, "\"") > 0) {
+				printf substr($i, 1, len + 2 + shift) str "\" ";
+			} else {
+				printf substr($i, 1, len + 1 + shift) str " ";
+			}
+		} else {
+			printf $i " ";
+		}
+	}
+
+	if (match($i, prefix) > 0) {
+		len = RSTART + RLENGTH;
+
+		if (is_leading == 0) {
+			len = len - 1;
+		}
+
+		printf substr($i, 1, len + shift) str "\n";
+	} else {
+		printf $i "\n";
+	}
+}
+
+{
+	if (match($0, "https://www.google.pl/webhp?") > 0) {
+		cut_suffix($0, "https://www.google.pl/webhp?",
+			"<cut-params>", 0, 1);
+	} else if (match($0, "chrome-search://thumb/") > 0) {
+		cut_suffix($0, "chrome-search://thumb/", "<cut-url>", -1, 1);
+	} else if (match($0, "chrome-search://favicon/size/16@1x/") > 0) {
+		cut_suffix($0, "chrome-search://favicon/size/16@1x/",
+			"<cut-url>", -1, 1);
+	} else if (match($0, "rs=") > 0) {
+		cut_suffix($0, "rs=", "<cut-rs>", 0, 0);
+	} else if (match($0, "payload: \"W:") > 0) {
+		print substr($0, 0, RSTART) \
+			substr($0, RSTART + 1, RLENGTH - 1) \
+			"<cut-payload>\"  }";
+	} else if (match($0, "gaia_auth_util.cc") > 0) {
+		if (match($0, "@") > 0) {
+			print $1, $2, "hidden@mail", $4, "hidden@mail";
+		} else {
+			print;
+		}
+	} else if (match($0, "token from DB") > 0) {
+		if ((match($0, "chromiumsync") > 0) || (match($0, "lso") > 0)) {
+			print $1, $2, $3, $4, $5, $6, "<cut-token>";
+		} else if (match($0, "oauth2LoginRefreshToken")) {
+			print $1, $2, $3, $4, $5, $6, "1/<cut-short-token>";
+		} else {
+			print;
+		}
+	} else if (match($0, "Incoming message has bad token:") > 0) {
+		for (i = 1; i <= 6; i++) {
+			printf $i " ";
+		}
+		
+		printf "\"<cut-message>\", \"<cut-token>\"\n";
+	} else if (match($0, "invalidation-client-core.cc") > 0) {
+		if (match($0, "client_name") > 0) {
+			for (i = 1; i < NF; i++) {
+				if (i == 9) {
+					printf "\"<cut-client_name>\"  ";
+				} else if ((i == 11) && ($i != "\"\",")) {
+					printf "\"<cut-persistent_state>\", ";
+				} else {
+					printf $i " ";
+				}
+			}
+
+			printf $NF "\n";
+		} else if (match($0, "Restarting from persistent state:") > 0) {
+			for (i = 1; i < NF; i++) {
+				printf $i " ";
+			}
+
+			printf "\"<cut-persistent_state>\"\n";
+		} else {
+			print;
+		}
+	} else{
+		print;
+	}
+}' |
+awk '{
+	if ($1 == "at") { # Restore exception indentations
+		printf "    ";
+
+		for (i = 1; i < NF; i ++) {
+			printf $i " ";
+		}
+
+		printf $i "\n";
+	} else {
+		print;
+	}
+}' > $WASHED_LOG

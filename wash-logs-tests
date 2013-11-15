@@ -1,0 +1,158 @@
+#!/bin/bash
+#
+# chrome-logging project is a series of scripts that help collect logs of
+# Google Chrome browser
+#
+# The MIT License (MIT)
+#
+# Copyright (c) 2013 Wiktor Lawski <wiktor.lawski@gmail.com>
+#
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included in all
+# copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+# SOFTWARE.
+#
+
+#
+# Bash script for verification of wash-logs script.
+#
+# It is version prepared both for Git Bash and Linux.
+#
+
+# Global variables
+
+OLD_LOG=chrome_debug.log
+WASHED_LOG=chrome_debug_washed.log
+TEST_NO=0
+
+# Global functions
+
+function clean {
+	rm -f $OLD_LOG
+	rm -f $WASHED_LOG
+}
+
+function test_wash {
+	echo "$1" > $OLD_LOG
+	EXPECTED=$2
+
+	TEST_NO=`expr $TEST_NO + 1`
+
+	wash-logs
+
+	RESULT=`cat $WASHED_LOG`
+
+	if [ "$EXPECTED" == "$RESULT" ]
+	then
+		return 0
+	else
+		echo "Test $TEST_NO failed:"
+		echo "Expected:"
+		echo $EXPECTED
+		echo "Actual:"
+		echo $RESULT
+
+		clean
+
+		exit -1
+	fi
+}
+
+# Test 1
+
+test_wash "[972:1096:1020/080319:VERBOSE1:database_manager.cc(1043)] SafeBrowsingCheckDone" "[972:1096:1020/080319:VERBOSE1:database_manager.cc(1043)] SafeBrowsingCheckDone"
+
+# Test 2
+
+test_wash "[972:2524:1020/080319:VERBOSE1:gaia_auth_util.cc(30)] Canonicalized sample.0@mail.mail to sample0@mailmail" "[972:2524:1020/080319:VERBOSE1:gaia_auth_util.cc(30)] Canonicalized hidden@mail to hidden@mail"
+
+# Test 3
+
+test_wash "[972:1096:1020/080335:VERBOSE1:resource_loader.cc(348)] OnResponseStarted: https://www.google.pl/webhp?sourceid=chrome-instant&espv=210&es_th=1&ie=UTF-8" "[972:1096:1020/080335:VERBOSE1:resource_loader.cc(348)] OnResponseStarted: https://www.google.pl/webhp?<cut-params>"
+
+# Test 4
+
+test_wash "[972:1096:1020/080335:VERBOSE1:resource_loader.cc(388)] OnReadCompleted: \"https://www.google.pl/webhp?sourceid=chrome-instant&espv=210&es_th=1&ie=UTF-8\" bytes_read = 32768" "[972:1096:1020/080335:VERBOSE1:resource_loader.cc(388)] OnReadCompleted: \"https://www.google.pl/webhp?<cut-params>\" bytes_read = 32768"
+
+# Test 5
+
+test_wash "[972:1096:1020/080337:VERBOSE1:resource_loader.cc(348)] OnResponseStarted: chrome-search://thumb/http://facebook.com/" "[972:1096:1020/080337:VERBOSE1:resource_loader.cc(348)] OnResponseStarted: chrome-search://thumb/<cut-url>"
+
+# Test 6
+
+test_wash "[972:1096:1020/080337:VERBOSE1:resource_loader.cc(388)] OnReadCompleted: \"chrome-search://thumb/http://youtube.com/\" bytes_read = 0" "[972:1096:1020/080337:VERBOSE1:resource_loader.cc(388)] OnReadCompleted: \"chrome-search://thumb/<cut-url>\" bytes_read = 0"
+
+# Test 7
+
+test_wash "[972:1096:1020/080338:VERBOSE1:resource_loader.cc(348)] OnResponseStarted: chrome-search://favicon/size/16@1x/http://www.youtube.com/" "[972:1096:1020/080338:VERBOSE1:resource_loader.cc(348)] OnResponseStarted: chrome-search://favicon/size/16@1x/<cut-url>"
+
+# Test 8
+
+test_wash "[972:1096:1020/080338:VERBOSE1:resource_loader.cc(388)] OnReadCompleted: \"chrome-search://favicon/size/16@1x/http://www.youtube.com/\" bytes_read = 0" "[972:1096:1020/080338:VERBOSE1:resource_loader.cc(388)] OnReadCompleted: \"chrome-search://favicon/size/16@1x/<cut-url>\" bytes_read = 0"
+
+# Test 9
+
+test_wash "[972:1096:1020/080338:VERBOSE1:resource_loader.cc(348)] OnResponseStarted: https://www.gstatic.com/og/_/js/k=og.og.en_US.dLR-0jbQhbM.O/rt=j/m=sy16,sy17,sy18,d,ld,gl,sy21,is,sy19,id,nb,nw,sb,sd,p,vd,awd,ip/rs=ABCDEF0123456789" "[972:1096:1020/080338:VERBOSE1:resource_loader.cc(348)] OnResponseStarted: https://www.gstatic.com/og/_/js/k=og.og.en_US.dLR-0jbQhbM.O/rt=j/m=sy16,sy17,sy18,d,ld,gl,sy21,is,sy19,id,nb,nw,sb,sd,p,vd,awd,ip/rs=<cut-rs>"
+
+# Test 10
+
+test_wash "[972:1096:1020/080338:VERBOSE1:resource_loader.cc(388)] OnReadCompleted: \"https://www.gstatic.com/og/_/js/k=og.og.en_US.dLR-0jbQhbM.O/rt=j/m=sy16,sy17,sy18,d,ld,gl,sy21,is,sy19,id,nb,nw,sb,sd,p,vd,awd,ip/rs=ABCDEF0123456789\" bytes_read = 32768" "[972:1096:1020/080338:VERBOSE1:resource_loader.cc(388)] OnReadCompleted: \"https://www.gstatic.com/og/_/js/k=og.og.en_US.dLR-0jbQhbM.O/rt=j/m=sy16,sy17,sy18,d,ld,gl,sy21,is,sy19,id,nb,nw,sb,sd,p,vd,awd,ip/rs=<cut-rs>\" bytes_read = 32768"
+
+# Test 11
+
+test_wash "[972:1096:1020/080339:VERBOSE1:resource_loader.cc(348)] OnResponseStarted: https://apis.google.com/_/scs/abc-static/_/js/k=gapi.gapi.en.i21U70I5tfQ.O/m=googleapis_client,plusone/rt=j/sv=1/d=1/ed=1/rs=ABCDEF0123456789/cb=gapi.loaded_0" "[972:1096:1020/080339:VERBOSE1:resource_loader.cc(348)] OnResponseStarted: https://apis.google.com/_/scs/abc-static/_/js/k=gapi.gapi.en.i21U70I5tfQ.O/m=googleapis_client,plusone/rt=j/sv=1/d=1/ed=1/rs=<cut-rs>"
+
+# Test 12
+
+test_wash "[972:1096:1020/080336:VERBOSE1:invalidation-client-core.cc(628)] Issuing invalidate: { object_id: { source: 1004 name: \"FAVICON_TRACKING\"  } is_known_version: true version: 1382248721503000 is_trickle_restart: true payload: \"W:ChfizABCDEF0123456789\"  }"  "[972:1096:1020/080336:VERBOSE1:invalidation-client-core.cc(628)] Issuing invalidate: { object_id: { source: 1004 name: \"FAVICON_TRACKING\"  } is_known_version: true version: 1382248721503000 is_trickle_restart: true payload: \"W:<cut-payload>\"  }"
+
+# Test 13
+
+test_wash "[972:2524:1020/080320:VERBOSE1:token_service.cc(444)] Loading chromiumsync token from DB: ABCDEF0123456789" "[972:2524:1020/080320:VERBOSE1:token_service.cc(444)] Loading chromiumsync token from DB: <cut-token>"
+
+# Test 14
+
+test_wash "[972:2524:1020/080320:VERBOSE1:token_service.cc(444)] Loading lso token from DB: ABCDEF0123456789" "[972:2524:1020/080320:VERBOSE1:token_service.cc(444)] Loading lso token from DB: <cut-token>"
+
+# Test 15
+
+test_wash "[972:2524:1020/080320:VERBOSE1:token_service.cc(444)] Loading oauth2LoginRefreshToken token from DB: 1/ABCDEF0123456789" "[972:2524:1020/080320:VERBOSE1:token_service.cc(444)] Loading oauth2LoginRefreshToken token from DB: 1/<cut-short-token>"
+
+# Test 16
+
+test_wash "[972:1096:1020/080347:VERBOSE1:invalidation-client-core.cc(855)] Incoming message has bad token: \"\n\001\n\002\003\004\005\", \"\n\001\n\002\003\004\005\"" "[972:1096:1020/080347:VERBOSE1:invalidation-client-core.cc(855)] Incoming message has bad token: \"<cut-message>\", \"<cut-token>\""
+
+# Test 17
+
+test_wash "[972:1096:1020/080331:VERBOSE1:invalidation-client-core.cc(233)] Created client: Client: { client_type: 1004 client_name: \"ABCDEF\"  }, \"\", <RunState 1>" "[972:1096:1020/080331:VERBOSE1:invalidation-client-core.cc(233)] Created client: Client: { client_type: 1004 client_name: \"<cut-client_name>\"  }, \"\", <RunState 1>"
+
+# Test 18
+
+test_wash "[972:1096:1020/080334:VERBOSE1:invalidation-client-core.cc(941)] Ticl started: Client: { client_type: 1004 client_name: \"ABCDEF\"  }, \"\n\001\n\002\003\004\005\", <RunState 2>" "[972:1096:1020/080334:VERBOSE1:invalidation-client-core.cc(941)] Ticl started: Client: { client_type: 1004 client_name: \"<cut-client_name>\"  }, \"<cut-persistent_state>\", <RunState 2>"
+
+# Test 19
+
+test_wash "[972:1096:1020/080334:VERBOSE1:invalidation-client-core.cc(325)] Restarting from persistent state: \"\n\001\n\002\003\004\005\"" "[972:1096:1020/080334:VERBOSE1:invalidation-client-core.cc(325)] Restarting from persistent state: \"<cut-persistent_state>\""
+
+# Test 20
+
+test_wash "    at Event.dispatch_ (event_bindings:367:27)" "    at Event.dispatch_ (event_bindings:367:27)"
+
+# Cleaning & summary
+
+clean
+echo "All tests passed"
+exit 0

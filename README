@@ -1,0 +1,16 @@
+chrome-logging
+--------------
+
+chrome-logging project is a series of scripts that help collect logs of
+Google Chrome browser.
+
+chrome-logging* scripts make backup of previous log and save the next one.
+Two logs may help investigating situations when it is not clear, if issue
+reason should be searched on shutdown or start sequence.
+
+Washing logs
+------------
+
+Logs collected by Google Chrome may contain some personal data. wash-logs
+script washes it out. There is also another script (wash-logs-tests), prepared
+to verify wash-logs script.
